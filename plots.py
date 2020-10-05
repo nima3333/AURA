@@ -44,6 +44,37 @@ def eac(sig, winsize=2048):
 	qs[qs < 0] = 0
 	return qs
 
+#https://stackoverflow.com/questions/34235530/python-how-to-get-high-and-low-envelope-of-a-signal
+def hl_envelopes_idx(s,dmin=3,dmax=4):
+    """
+    Input :
+    s : 1d-array, data signal from which to extract high and low envelopes
+    dmin, dmax : int, size of chunks, use this if size of data is too big
+    Output :
+    lmin,lmax : high/low enveloppe idx of signal s
+    """
+
+    # locals min      
+    lmin = (np.diff(np.sign(np.diff(s))) > 0).nonzero()[0] + 1 
+    # locals max
+    lmax = (np.diff(np.sign(np.diff(s))) < 0).nonzero()[0] + 1 
+    
+    
+    """# using the following might help in some case by cutting the signal in "half"
+    s_mid = np.mean(s)
+    # pre-sorting of locals min based on sign 
+    lmin = lmin[s[lmin]<s_mid]
+    # pre-sorting of local max based on sign 
+    lmax = lmax[s[lmax]>s_mid]"""
+    
+
+    # global max of dmax-chunks of locals max 
+    lmin = lmin[[i+np.argmin(s[lmin[i:i+dmin]]) for i in range(0,len(lmin),dmin)]]
+    # global min of dmin-chunks of locals min 
+    lmax = lmax[[i+np.argmax(s[lmax[i:i+dmax]]) for i in range(0,len(lmax),dmax)]]
+    
+    return lmin,lmax
+
 files = ["ren_out.wav", "ren_in2.wav", "ren_2in.wav"]
 
 for i in range(len(files)):
@@ -74,25 +105,34 @@ for i in range(len(files)):
     plt.title('Audio signal')
     plt.ylabel('Amplitude')
 
+    a = autocorrellation(audio_normalised)
 
-    a = np.abs(autocorrellation(audio_normalised))
-    analytic_signal = hilbert(a)
-    amplitude_envelope = np.abs(analytic_signal)[len(a)//2:]
+    a = (a[len(a)//2:])
+    """analytic_signal = hilbert(a)
+    amplitude_envelope = np.abs(analytic_signal)"""
 
-    a = a[len(a)//2:]
-    sos = signal.butter(2, 50, 'lp', fs=frequency, output='sos')
-    amplitude_envelope = signal.sosfilt(sos, amplitude_envelope)
-    f2 = interp1d(time[:len(a)], amplitude_envelope, kind='cubic')
+    #f2 = interp1d(time[:len(a)], amplitude_envelope, kind='cubic')
     #peaks, _ = find_peaks(amplitude_envelope, prominence=1)
+    """analytic_signal = hilbert(amplitude_envelope)
+    amplitude_envelope = np.abs(analytic_signal)"""
+
+    low_enveloppe, high_enveloppe = hl_envelopes_idx(a)
+    low_enveloppe = interp1d(np.array(time)[low_enveloppe], a[low_enveloppe], kind="cubic", fill_value="extrapolate")
+    high_enveloppe = interp1d(np.array(time)[high_enveloppe], a[high_enveloppe], kind="cubic", fill_value="extrapolate")
 
     plt.subplot(4, len(files), i+len(files)+1)
     plt.scatter(time[:len(a)], a, s=1)
-    plt.plot(time[:len(a)], f2(time[:len(a)]), label='envelope', color='red')
-    #plt.plot(np.array(time[:len(a)])[peaks], amplitude_envelope[peaks], "x", color="orange")
+
+    plt.plot(np.array(time), low_enveloppe(time), label='nearest', color='red')
+    plt.plot(np.array(time), high_enveloppe(time), label='nearest', color='green')
+    plt.plot(np.array(time), high_enveloppe(time)-low_enveloppe(time), label='nearest', color='black')
+
+    #plt.plot(time[:len(a)], f2(time[:len(a)]), label='envelope', color='red')
+    #plt.plot(np.array(time[:len(a)]), amplitude_envelope, color="orange")
     plt.title('Autocorelation')
     plt.ylabel('Amplitude')
 
-    windowed_signal = np.hamming(samples) * amplitude_envelope
+    windowed_signal = np.hamming(samples) * audio_normalised
     #windowed_signal = audio_normalised
     X = power_spectrum_dft(windowed_signal)
     freq_vector = np.fft.fftfreq(samples, d=1/frequency)
