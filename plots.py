@@ -5,7 +5,7 @@ import numpy as np
 from numpy.fft import fft, rfft
 from scipy.interpolate import interp1d
 from scipy.signal      import argrelextrema
-import glob, os
+import glob, os, sys
 import scipy.signal as sg
 from scipy import signal
 from scipy.signal import minimum_phase
@@ -75,7 +75,8 @@ def hl_envelopes_idx(s,dmin=3,dmax=4):
     
     return lmin,lmax
 
-files = ["ren_out.wav", "ren_in2.wav", "ren_2in.wav"]
+os.chdir('experiments/audio_at_receiver')
+files = ["audio_017.wav", "audio_005.wav", "audio_009.wav"]
 
 for i in range(len(files)):
     #https://stackoverflow.com/questions/16778878/python-write-a-wav-file-into-numpy-float-array
@@ -83,7 +84,7 @@ for i in range(len(files)):
 
     # Read file to get buffer                                                                                               
     ifile = wave.open(files[i])
-    samples = ifile.getnframes()
+    samples = 2*ifile.getnframes()
     frequency = ifile.getframerate()
     audio = ifile.readframes(samples)
 
@@ -125,7 +126,7 @@ for i in range(len(files)):
 
     plt.plot(np.array(time), low_enveloppe(time), label='nearest', color='red')
     plt.plot(np.array(time), high_enveloppe(time), label='nearest', color='green')
-    plt.plot(np.array(time), high_enveloppe(time)-low_enveloppe(time), label='nearest', color='black')
+    #plt.plot(np.array(time), high_enveloppe(time)-low_enveloppe(time), label='nearest', color='black')
 
     #plt.plot(time[:len(a)], f2(time[:len(a)]), label='envelope', color='red')
     #plt.plot(np.array(time[:len(a)]), amplitude_envelope, color="orange")
